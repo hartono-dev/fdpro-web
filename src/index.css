@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #002D62;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #00A896;
+  --color-secondary-foreground: #ffffff;
+  --color-destructive: #E53E3E;
+  --color-muted: #F4F6F9;
+  --color-muted-foreground: #64748B;
+  --color-accent: #F4F6F9;
+  --color-accent-foreground: #1E293B;
+  --color-background: #ffffff;
+  --color-foreground: #0F172A;
+  --color-card: #ffffff;
+  --color-card-foreground: #0F172A;
+  --color-border: #E2E8F0;
+  --color-input: #E2E8F0;
+  --color-ring: #002D62;
+
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+  html, body {
+    overflow-x: clip;
+    max-width: 100%;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
