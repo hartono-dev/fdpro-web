@@ -2,14 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  CalendarDays,
-  Clock,
-  MapPin,
-  Users,
-  UserPlus,
   CheckCircle2,
   Check,
   X,
+  UserPlus,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -20,8 +16,11 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 
-const formatDateTime = (date: string | Date) =>
-  format(new Date(date), 'EEEE, d MMMM yyyy • HH:mm', { locale: id });
+const formatDate = (date: string | Date) =>
+  format(new Date(date), 'EEEE, d MMMM yyyy', { locale: id });
+
+const formatTime = (date: string | Date) =>
+  format(new Date(date), 'HH:mm', { locale: id });
 
 const getInitials = (name: string) =>
   name
@@ -112,8 +111,14 @@ export default function EventDetailPage() {
     );
   }
 
-  const isFinished = event.status === 'finished';
+    const isFinished = event.status === 'finished';
   const canRsvp = !!event.myInviteeId && !isFinished;
+  const meetingTypeLabel =
+    event.meetingType === 'online'
+      ? 'Online'
+      : event.meetingType === 'hybrid'
+      ? 'Hybrid'
+      : 'Onsite';
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -129,55 +134,50 @@ export default function EventDetailPage() {
         )}
       </div>
 
-      <Card>
+            <Card>
         <CardHeader>
-          <div className="flex flex-wrap items-center gap-3">
-            <CardTitle className="text-2xl text-[#002D62]">{event.title}</CardTitle>
-            {event.type && <Badge variant="outline">{event.type}</Badge>}
-            <Badge variant={isFinished ? 'secondary' : 'default'}>
-              {isFinished ? 'Selesai' : 'Aktif'}
-            </Badge>
-          </div>
+          <CardTitle className="text-2xl text-[#002D62]">{event.title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div className="flex items-center gap-2 text-gray-700">
-              <CalendarDays className="h-4 w-4 text-gray-400" />
-              {formatDateTime(event.startDate)}
-            </div>
-            <div className="flex items-center gap-2 text-gray-700">
-              <Clock className="h-4 w-4 text-gray-400" />
-              {event.endDate ? formatDateTime(event.endDate) : 'Waktu tidak ditentukan'}
-            </div>
-            <div className="flex items-center gap-2 text-gray-700">
-              <MapPin className="h-4 w-4 text-gray-400" />
-              {event.meetingType === 'online'
-                ? 'Online'
-                : event.meetingType === 'hybrid'
-                ? `Hybrid · ${event.location || '-'}`
-                : event.location || 'Onsite'}
-            </div>
-            <div className="flex items-center gap-2 text-gray-700">
-              <Users className="h-4 w-4 text-gray-400" />
-              {event.inviteeCount} Diundang · {event.rsvpHadirCount} Konfirmasi Hadir
-            </div>
-          </div>
-
-          {event.description && (
-            <div>
-              <h4 className="font-medium text-gray-900 mb-1">Deskripsi</h4>
-              <p className="text-sm text-gray-600 whitespace-pre-wrap">{event.description}</p>
-            </div>
-          )}
+          <dl className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-y-2 text-sm">
+            <dt className="text-gray-500">Mulai Event:</dt>
+            <dd>
+              {formatDate(event.startDate)} Pukul {formatTime(event.startDate)}
+            </dd>
+            <dt className="text-gray-500">Selesai Event:</dt>
+            <dd>
+              {event.endDate
+                ? `${formatDate(event.endDate)} Pukul ${formatTime(event.endDate)}`
+                : '-'}
+            </dd>
+            <dt className="text-gray-500">Jenis Meeting:</dt>
+            <dd>{meetingTypeLabel}</dd>
+            <dt className="text-gray-500">Lokasi:</dt>
+            <dd>{event.location || '-'}</dd>
+            {event.description && (
+              <>
+                <dt className="text-gray-500">Deskripsi:</dt>
+                <dd>
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap">
+                    {event.description}
+                  </p>
+                </dd>
+              </>
+            )}
+          </dl>
 
           {event.creator && (
-            <div className="flex items-center gap-3 border-t pt-4">
-              <Avatar>
-                <AvatarFallback>{getInitials(event.creator.name)}</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="text-xs text-gray-500">Dibuat oleh</p>
-                <p className="text-sm font-medium text-gray-900">{event.creator.name}</p>
+            <div className="flex justify-end border-t pt-4">
+              <div className="flex items-center gap-3">
+                <Avatar>
+                  <AvatarFallback>{getInitials(event.creator.name)}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-xs text-gray-500">Dibuat Oleh</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {event.creator.name}
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -187,7 +187,7 @@ export default function EventDetailPage() {
       {canRsvp && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Konfirmasi Kehadiran (RSVP)</CardTitle>
+            <CardTitle className="text-lg">Konfirmasi Kehadiran Anda</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -210,7 +210,7 @@ export default function EventDetailPage() {
             </div>
             {event.myRsvp && event.myRsvp !== 'belum' && (
               <p className="text-xs text-gray-500 mt-3">
-                Status RSVP Anda saat ini:{' '}
+                Anda sudah konfirmasi:{' '}
                 <strong>{event.myRsvp === 'hadir' ? 'Hadir' : 'Tidak Hadir'}</strong>
               </p>
             )}
@@ -218,27 +218,27 @@ export default function EventDetailPage() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-          <CardTitle className="text-lg">Daftar Peserta ({event.inviteeCount})</CardTitle>
-          {event.isCreator && (
+      {event.isCreator && (
+        <Card>
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+            <CardTitle className="text-lg">Daftar Peserta ({event.inviteeCount})</CardTitle>
             <Button size="sm" variant="outline" disabled>
               <UserPlus className="h-4 w-4 mr-2" /> Undang Peserta
             </Button>
-          )}
-        </CardHeader>
-        <CardContent>
-          <AttendanceList
-            eventId={event.id}
-            invitees={event.invitees}
-            attendances={event.attendances}
-            isFinished={isFinished}
-            isCreator={event.isCreator}
-            canEditAttendance={!!event.canEditAttendance}
-            onUpdate={setEvent}
-          />
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <AttendanceList
+              eventId={event.id}
+              invitees={event.invitees}
+              attendances={event.attendances}
+              isFinished={isFinished}
+              isCreator={event.isCreator}
+              canEditAttendance={!!event.canEditAttendance}
+              onUpdate={setEvent}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
