@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment — never commit a real .env (use .env.example as the template)
+*.env
+!.env.example
