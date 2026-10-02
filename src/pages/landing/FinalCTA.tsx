@@ -48,7 +48,7 @@ const FinalCTA = ({ hasReferral, referralCode }: { hasReferral: boolean; referra
         </div>
 
         <p className="mt-6 text-xs text-gray-400 opacity-80">
-          🛡️ Setoran 100% Masuk ke Tabungan Virtual Account Resmi OJK. Tanpa Biaya Keanggotaan Platform FDPro.
+          🛡️ 100% simpanan disetorkan ke Virtual Account asuransi. FDPro tidak memungut biaya keanggotaan sama sekali.
         </p>
       </div>
     </section>

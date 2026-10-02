@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Slider } from "@/components/ui/slider";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -19,19 +20,13 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-const IncomeSimulation = ({ hasReferral }: { hasReferral: boolean }) => {
+const IncomeSimulation = ({ hasReferral, referralCode }: { hasReferral: boolean; referralCode?: string }) => {
   const [sliderValue, setSliderValue] = useState([0]);
   const currentData = simulationData[sliderValue[0]];
 
   const consultationButton = (
     <Button variant="secondary" size="lg" className="text-base px-8 py-6 h-auto">
       Simulasikan Potensi Anda
-    </Button>
-  );
-
-  const registrationButton = (
-    <Button variant="secondary" size="lg" className="text-base px-8 py-6 h-auto">
-      Daftar Kemitraan
     </Button>
   );
 
@@ -79,15 +74,17 @@ const IncomeSimulation = ({ hasReferral }: { hasReferral: boolean }) => {
 <div className="mt-10 flex flex-col justify-center items-center gap-4">
           {hasReferral ? (
             <>
-              <LeadFormModal 
-                trigger={registrationButton}
-                formType="registration"
-              />
+              <Link to={referralCode ? `/register?ref=${referralCode}` : "/register"}>
+                <Button variant="secondary" size="lg" className="text-base px-8 py-6 h-auto">
+                  Daftar Kemitraan
+                </Button>
+              </Link>
               <div className="text-center">
                 <span className="text-gray-300 text-sm">Masih ada yang ingin ditanyakan sebelum mendaftar? </span>
                 <LeadFormModal 
                   trigger={<button className="text-secondary hover:text-secondary/80 text-sm font-semibold underline">Konsultasi di Sini</button>}
                   formType="consultation"
+                  referralId={referralCode}
                 />
               </div>
             </>

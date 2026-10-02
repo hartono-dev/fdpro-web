@@ -38,18 +38,20 @@ DropdownMenuContent.displayName = 'DropdownMenuContent';
 
 interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivElement> {
   inset?: boolean;
+  disabled?: boolean;
 }
 
 const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuItemProps>(
-  ({ className, inset, onClick, ...props }, ref) => (
+  ({ className, inset, disabled, onClick, ...props }, ref) => (
     <div
       ref={ref}
       role="menuitem"
-      tabIndex={0}
-      onClick={onClick}
+      tabIndex={disabled ? -1 : 0}
+      onClick={disabled ? undefined : onClick}
       className={cn(
         'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
         inset && 'pl-8',
+        disabled && 'cursor-not-allowed opacity-50 hover:bg-transparent hover:text-inherit',
         className
       )}
       {...props}

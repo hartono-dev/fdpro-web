@@ -7,8 +7,8 @@ import ProfileMenu from "@/components/ProfileMenu";
 export function MemberLayout() {
   
   return (
-    <div className="flex flex-col min-h-screen"> {/* Hapus grid layout agar BottomNav bisa di bawah */}
-      <header className="sticky top-0 z-50 flex h-14 items-center gap-4 border-b bg-white px-4 lg:h-[60px] lg:px-6"> {/* sticky header */}
+    <div className="flex h-[100dvh] flex-col overflow-hidden"> {/* h-[100dvh] = dynamic viewport height (aman di iOS Safari); overflow-hidden supaya scroll terjadi di dalam <main>, bukan di body */}
+      <header className="flex h-14 shrink-0 items-center gap-4 border-b bg-white px-4 lg:h-[60px] lg:px-6"> {/* shrink-0: header menetap di atas, main yang scroll di bawahnya */}
         <div className="flex items-center gap-2 font-semibold md:hidden">
           <Link to="/member">
             <img src="/FDPro_logo_Landscape.svg" alt="FDPro" className="h-7 w-auto" />
@@ -25,7 +25,11 @@ export function MemberLayout() {
           <ProfileMenu />
         </div>
       </header>
-      <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-muted pb-28 md:pb-28"> {/* pb-28 memberi ruang napas di atas BottomNav (h-16=64px) agar task terbawah tidak terpotong pada semua breakpoint */}
+      {/* main = satu-satunya area scrollable (overflow-y-auto + min-h-0 agar bisa
+          menyusut di flex column). padding-bottom (pb-28 = 112px) > tinggi BottomNav
+          (h-16 = 64px) sehingga item paling bawah bisa discroll penuh melewati nav
+          tanpa terpotong/tertutup — diterapkan global untuk semua halaman member. */}
+      <main className="flex flex-1 flex-col gap-4 overflow-y-auto bg-muted p-4 pb-28 md:pb-28 lg:gap-6 lg:p-6 lg:pb-28 min-h-0">
         <Outlet />
       </main>
       <BottomNav /> {/* BottomNav sudah diubah agar tampil di semua ukuran */}

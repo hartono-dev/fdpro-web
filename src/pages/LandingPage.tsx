@@ -1,5 +1,4 @@
-import { useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useRef } from "react";
 import Navbar from "@/components/Navbar";
 import HeroSection from "./landing/HeroSection";
 import ProblemSection from "./landing/ProblemSection";
@@ -15,25 +14,17 @@ import FAQSection from "./landing/FAQSection";
 import FinalCTA from "./landing/FinalCTA";
 import FloatingCTABar from "./landing/FloatingCTABar";
 import Footer from "@/components/Footer";
+import { useReferralTracker } from "@/hooks/useReferralTracker";
 
 const LandingPage = () => {
-  const location = useLocation();
-  const params = new URLSearchParams(location.search);
-  const referralCode = params.get("ref");
+  const { referralId } = useReferralTracker();
   const ctaRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (referralCode) {
-      localStorage.setItem("referralCode", referralCode);
-    }
-  }, [referralCode]);
-
-  // Logika untuk menentukan TAMPILAN UI (hanya bergantung pada URL saat ini)
-  const hasReferral = !!referralCode;
-
-  // Logika untuk mengisi data form (boleh menggunakan localStorage)
-  const storedReferral = localStorage.getItem("referralCode");
-  const finalReferralCode = referralCode || storedReferral || undefined;
+  // Tampilkan "Landing Page Referral" jika ada kode referral VALID:
+  //  - masih tersimpan di localStorage (< 60 hari), ATAU
+  //  - masih ada di parameter URL (?ref=...).
+  // Landing Page SEO hanya tampil bila keduanya kosong / kedaluwarsa.
+  const hasReferral = !!referralId;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -43,13 +34,13 @@ const LandingPage = () => {
         <ProblemSection />
         <SolutionSection />
         <TrustSection />
-        <IncomeSimulation hasReferral={hasReferral} />
+        <IncomeSimulation hasReferral={hasReferral} referralCode={referralId || undefined} />
         <IncomeStreams />
         <HowItWorks />
         <RiskProtection />
         <FounderStory />
         <FAQSection />
-        <FinalCTA hasReferral={hasReferral} referralCode={finalReferralCode} />
+        <FinalCTA hasReferral={hasReferral} referralCode={referralId || undefined} />
       </main>
       <Footer />
       <FloatingCTABar hasReferral={hasReferral} targetRef={ctaRef} />

@@ -5,8 +5,8 @@ export function getRoleName(role?: string) {
     fc: "Financial Consultant",
     abp: "Associate Business Partner",
     bp: "Business Partner",
-    admin: "Administrator",
-    super_admin: "Super Administrator",
+    admin: "Admin",
+    super_admin: "Super Admin",
     calon_agen: "Calon Agen",
   };
   return role ? roleMap[role] || role : "—";
@@ -44,5 +44,21 @@ export function getLicenseStatus(aajiExpiry?: string) {
     return { text: "Aktif", variant: "default" as const };
   } catch {
     return { text: "Invalid Date", variant: "destructive" as const };
+  }
+}
+
+/**
+ * Teks tanggal expired lisensi AAJI ditampilkan MERAH saat menjelang 2 minggu
+ * (≤ 14 hari) sebelum expired — termasuk saat sudah expired — dan tetap merah
+ * sampai lisensi di-reaktivasi (aajiExpiry diperbarui > 14 hari).
+ */
+export function isAajiExpiryUrgent(aajiExpiry?: string, warnDays: number = 14): boolean {
+  if (!aajiExpiry) return false;
+  try {
+    const expiryDate = parseISO(aajiExpiry);
+    const today = new Date();
+    return differenceInDays(expiryDate, today) <= warnDays;
+  } catch {
+    return false;
   }
 }

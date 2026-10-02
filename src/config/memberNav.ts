@@ -20,14 +20,18 @@ export const memberNav: NavItem[] = [
     label: 'Leads',
     icon: FolderKanban,
     roles: ['fc', 'abp', 'bp', 'admin', 'super_admin', 'calon_agen'],
-    disabledFor: ['calon_agen'],
+    // Calon Agen diizinkan **melihat & mengakses** halaman Leads (view read-only).
+    // Tombol Pick Up tetap dikunci (disabled + tooltip) & backend menolak request pickup
+    // — lihat LeadsDashboard.isCalonAgen + leadController.pickupLead guard.
   },
   {
     href: '/member/team',
     label: 'Team',
     icon: Users,
     roles: ['fc', 'abp', 'bp', 'admin', 'super_admin', 'calon_agen'],
-    disabledFor: ['calon_agen'],
+    // Calon Agen boleh mengakses halaman Team namun hanya melihat tab "Team Anda"
+    // (Approval, Riwayat, dan Update disembunyikan di TeamPage via canAccess*).
+    disabledFor: [],
   },
   {
     href: '/member/event',

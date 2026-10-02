@@ -8,6 +8,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ForgotPasswordModal } from "@/components/ForgotPasswordModal";
 import { Eye, EyeOff } from 'lucide-react';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_ERROR_MSG = 'Format email tidak valid (contoh: nama@email.com)';
+
 const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -16,6 +19,8 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [warning, setWarning] = useState('');
   const [loading, setLoading] = useState(false);
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
 
@@ -23,12 +28,31 @@ const LoginPage = () => {
     if (searchParams.get('session_expired')) {
       setError("Sesi Anda telah berakhir. Silakan login kembali.");
     }
+    if (localStorage.getItem('suspendedWarning')) {
+      setWarning("Akun Anda dalam status Suspend. Hubungi Leader Anda untuk informasi lebih lanjut.");
+    }
   }, [searchParams]);
 
+
+  const validateEmail = (value: string): boolean => {
+    if (!EMAIL_REGEX.test(value)) {
+      setEmailError(EMAIL_ERROR_MSG);
+      return false;
+    }
+    setEmailError(null);
+    return true;
+  };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+
+    // Guard: validasi email sebelum submit
+    if (!validateEmail(email)) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const userData = await login(email, password);
@@ -40,7 +64,15 @@ const LoginPage = () => {
         navigate("/member");
       }
     } catch (err: any) {
-      setError(err.message);
+      if (err?.status === 429) {
+        // Rate limit API aktif (5 percobaan/menit/IP) — tampilkan pesan eksplisit.
+        // Aman ditampilkan: tidak membocorkan identitas akun tertentu.
+        setError(err.message || "Terlalu banyak percobaan login. Silakan tunggu 1 menit sebelum mencoba lagi.");
+      } else {
+        // Security best practice: gunakan pesan error statis
+        setError("Email atau password salah");
+      }
+      console.error('Login error:', err);
     } finally {
       setLoading(false);
     }
@@ -72,6 +104,7 @@ const LoginPage = () => {
             <CardContent>
               <form onSubmit={handleLogin} className="space-y-6">
                 {error && <p className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-md">{error}</p>}
+                {warning && <p className="text-amber-600 text-sm text-center bg-amber-50 p-3 rounded-md border border-amber-200">{warning}</p>}
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -80,8 +113,10 @@ const LoginPage = () => {
                     placeholder="email@anda.com"
                     required
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setEmailError(null); }}
+                    onBlur={() => email && validateEmail(email)}
                   />
+                  {emailError && <p className="text-xs text-red-500">{emailError}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>

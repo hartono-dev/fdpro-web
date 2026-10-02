@@ -29,6 +29,10 @@ export function useAddress() {
 
   useEffect(() => {
     if (provinceId) {
+      // Bersihkan daftar dependen dari pilihan sebelumnya
+      setCities([]);
+      setDistricts([]);
+      setVillages([]);
       const fetchCities = async () => {
         const res = await fetch(`${API_URL}/api/address/cities/${provinceId}`);
         const data = await res.json();
@@ -40,6 +44,8 @@ export function useAddress() {
 
   useEffect(() => {
     if (cityId) {
+      setDistricts([]);
+      setVillages([]);
       const fetchDistricts = async () => {
         const res = await fetch(`${API_URL}/api/address/districts/${cityId}`);
         const data = await res.json();
@@ -51,6 +57,7 @@ export function useAddress() {
 
   useEffect(() => {
     if (districtId) {
+      setVillages([]);
       const fetchVillages = async () => {
         const res = await fetch(`${API_URL}/api/address/villages/${districtId}`);
         const data = await res.json();
@@ -60,7 +67,18 @@ export function useAddress() {
     }
   }, [districtId]);
 
-  return {
+  // Reset seluruh pilihan & daftar dependen (dipakai saat membatalkan
+  // perubahan form atau menginisialisasi ulang cascade alamat).
+  const reset = () => {
+    setProvinceId('');
+    setCityId('');
+    setDistrictId('');
+    setCities([]);
+    setDistricts([]);
+    setVillages([]);
+  };
+
+      return {
     provinces,
     cities,
     districts,
@@ -68,5 +86,10 @@ export function useAddress() {
     setProvinceId,
     setCityId,
     setDistrictId,
+    setProvinces,
+    setCities,
+    setDistricts,
+    setVillages,
+    reset,
   };
 }

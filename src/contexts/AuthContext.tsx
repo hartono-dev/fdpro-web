@@ -53,6 +53,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Login response sudah mencakup role, fdCode (nullable), mustChangePwd, dll.
     let userWithCode = { ...data.user };
 
+    // Simpan warning suspend bila ada
+    if (data.suspendedWarning) {
+      localStorage.setItem('suspendedWarning', 'true');
+    } else {
+      localStorage.removeItem('suspendedWarning');
+    }
+
     // Coba sinkronkan fdCode lewat endpoint ensure-fdcode (untuk agen/BP
     // yang belum punya kode). Untuk admin/super_admin endpoint mengembalikan
     // fdCode: null dan TIDAK memblokir login (HTTP 200). Jika gagal,

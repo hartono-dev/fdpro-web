@@ -8,44 +8,77 @@ import { Check, Copy } from "lucide-react";
 interface RecruitLeadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  registrationUrl: string | null;
   leadName: string;
+  fdCode: string | undefined;
+  leadId: string;
+  /** Jika false, modal hanya menampilkan link untuk di-copy (mode read-only) */
+  showDone?: boolean;
+  onDone?: () => Promise<void>;
 }
 
-export function RecruitLeadModal({ open, onOpenChange, registrationUrl, leadName }: RecruitLeadModalProps) {
+export function RecruitLeadModal({
+  open,
+  onOpenChange,
+  leadName,
+  fdCode,
+  leadId,
+  showDone = true,
+  onDone,
+}: RecruitLeadModalProps) {
   const [hasCopied, setHasCopied] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // URL penuh dengan ref agen & lead_id — penting untuk tracking anti-bias email
+  const fullUrl = `${window.location.origin}/register?ref=${fdCode}&lead_id=${leadId}`;
 
   const handleCopy = () => {
-    if (registrationUrl) {
-      navigator.clipboard.writeText(registrationUrl);
-      setHasCopied(true);
-      setTimeout(() => setHasCopied(false), 2000);
+    navigator.clipboard.writeText(fullUrl);
+    setHasCopied(true);
+    setTimeout(() => setHasCopied(false), 2000);
+  };
+
+  const handleDone = async () => {
+    if (!onDone) return;
+    setIsSubmitting(true);
+    try {
+      await onDone();
+      onOpenChange(false);
+    } catch {
+      // Error handled in parent
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  
-  if (!registrationUrl) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Rekrutmen Berhasil!</DialogTitle>
+          <DialogTitle>RECRUIT</DialogTitle>
           <DialogDescription>
-            Bagikan link pendaftaran berikut kepada <strong>{leadName}</strong> untuk menyelesaikan proses registrasi.
+            Bagikan link pendaftaran kepada <strong>{leadName}</strong> untuk menyelesaikan proses registrasi.
           </DialogDescription>
         </DialogHeader>
+
         <div className="py-4">
-          <Label htmlFor="registration-url">Link Pendaftaran Khusus</Label>
-          <div className="flex items-center gap-2 mt-1">
-            <Input id="registration-url" value={registrationUrl} readOnly />
-            <Button size="icon" onClick={handleCopy}>
+          <Label htmlFor="registration-url" className="mb-2 block">
+            Link Pendaftaran
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input id="registration-url" value={fullUrl} readOnly className="text-sm" />
+            <Button size="icon" onClick={handleCopy} variant="outline" title="Salin link">
               {hasCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>
         </div>
-        <DialogFooter>
-          <Button onClick={() => onOpenChange(false)}>Tutup</Button>
-        </DialogFooter>
+
+        {showDone && onDone && (
+          <DialogFooter>
+            <Button onClick={handleDone} disabled={isSubmitting}>
+              {isSubmitting ? "Memproses..." : "Done"}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

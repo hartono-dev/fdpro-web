@@ -6,7 +6,7 @@ const steps = [
     icon: <ShieldCheck className="h-10 w-10 text-white" />,
     step: 1,
     title: "Amankan Tabungan Keluarga",
-    description: "Setor Rp30rb/hari via VA Resmi OJK. Dana Anda langsung masuk ke rekening perusahaan asuransi mitra resmi."
+    description: "Setor Rp30rb/hari via VA Resmi Asuransi. Dana Anda langsung masuk ke rekening perusahaan asuransi mitra resmi."
   },
   {
     icon: <Monitor className="h-10 w-10 text-white" />,

@@ -5,15 +5,15 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/input';
-import { ScrollText, Search, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 
 interface AuditLog {
   id: string;
   action: string;
   targetId: string | null;
   details: string | null;
-  createdAt: string;
-  admin: { email: string };
+    createdAt: string;
+  user: { email: string } | null;
 }
 
 interface AuditDetails {
@@ -115,39 +115,30 @@ const AdminAuditLogsPage = () => {
   };
 return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <ScrollText className="h-6 w-6" /> Audit Logs
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Riwayat aktivitas admin di sistem. Hanya dapat diakses oleh Super Admin.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Memuat...' : 'Muat Ulang'}
-        </Button>
-      </div>
-
-      {/* Filter */}
+                  {/* Filter */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1 sm:max-w-xs">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Cari berdasarkan aksi (mis. CREATE_ADMIN)"
-            value={actionInput}
-            onChange={(e) => setActionInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && applyFilter()}
-            className="pl-8"
-          />
-        </div>
-        <Button onClick={applyFilter}>Terapkan Filter</Button>
-        {actionFilter && (
-          <Button variant="ghost" onClick={clearFilter}>
-            Hapus Filter
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Cari berdasarkan aksi (mis. CREATE_ADMIN)"
+              value={actionInput}
+              onChange={(e) => setActionInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && applyFilter()}
+              className="pl-8"
+            />
+          </div>
+          <Button onClick={applyFilter}>Terapkan Filter</Button>
+          {actionFilter && (
+            <Button variant="ghost" onClick={clearFilter}>
+              Hapus Filter
+            </Button>
+          )}
+          <Button variant="outline" onClick={fetchLogs} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Memuat...' : 'Muat Ulang'}
           </Button>
-        )}
+        </div>
         <span className="text-sm text-muted-foreground sm:ml-auto">
           Total {total} catatan
         </span>
@@ -177,7 +168,7 @@ return (
                 {logs.map((log) => {
                   const details = parseDetails(log.details);
                   const actorName = details.actor?.name ?? 'Sistem';
-                  const actorEmail = details.actor?.email ?? log.admin.email;
+                                    const actorEmail = details.actor?.email ?? log.user?.email ?? '—';
                   const description = details.description ?? log.details ?? '-';
                   return (
                     <TableRow key={log.id}>

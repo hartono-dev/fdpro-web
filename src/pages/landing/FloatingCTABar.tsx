@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
+import { Link } from "react-router-dom";
 import { LeadFormModal } from "@/components/LeadFormModal";
+import { useReferralTracker } from "@/hooks/useReferralTracker";
 import useObserveScroll from "@/hooks/useObserveScroll";
 import type { RefObject } from "react";
 
@@ -13,9 +14,7 @@ interface FloatingCTABarProps {
 const FloatingCTABar = ({ hasReferral, targetRef }: FloatingCTABarProps) => {
   const [isVisible, setIsVisible] = useState(false);
   const isTargetOutOfView = useObserveScroll(targetRef);
-  const location = useLocation();
-  const params = new URLSearchParams(location.search);
-  const referralId = params.get("ref") || localStorage.getItem("referralCode") || undefined;
+  const { referralId } = useReferralTracker();
 
   useEffect(() => {
     setIsVisible(isTargetOutOfView);
@@ -51,16 +50,12 @@ const FloatingCTABar = ({ hasReferral, targetRef }: FloatingCTABarProps) => {
             {hasReferral ? (
               // Versi Referral: 2 tombol
               <div className="grid grid-cols-2 gap-2">
-                {/* Tombol "Daftar" membuka modal registrasi */}
-                <LeadFormModal
-                  trigger={
-                    <Button variant="secondary" className="w-full text-sm py-3 h-auto font-semibold">
-                      Daftar
-                    </Button>
-                  }
-                  formType="registration"
-                  referralId={referralId}
-                />
+                {/* Tombol "Daftar" mengarahkan ke halaman /register (bukan modal lagi) */}
+                <Link to={referralId ? `/register?ref=${referralId}` : "/register"}>
+                  <Button variant="secondary" className="w-full text-sm py-3 h-auto font-semibold">
+                    Daftar
+                  </Button>
+                </Link>
                 <LeadFormModal
                   trigger={
                     <Button variant="default" className="w-full text-sm py-3 h-auto font-semibold bg-primary text-white">
@@ -68,7 +63,7 @@ const FloatingCTABar = ({ hasReferral, targetRef }: FloatingCTABarProps) => {
                     </Button>
                   }
                   formType="consultation"
-                  referralId={referralId}
+                  referralId={referralId || undefined}
                 />
               </div>
             ) : (

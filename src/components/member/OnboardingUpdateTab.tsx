@@ -3,8 +3,9 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ChevronDown, ChevronUp, User as UserIcon, CheckCircle, Circle, AlertCircle } from 'lucide-react';
+import { TeamEmptyState } from '@/components/member/TeamEmptyState';
 import { api } from '@/lib/api';
-import { OnboardingTaskModal, type TaskId, type TaskData } from './OnboardingTaskModal';
+import { OnboardingTaskModal, type TaskId, type TaskData, DEFAULT_PAYMENT_MODE } from './OnboardingTaskModal';
 
 const TASK_DEFINITIONS: { id: TaskId; label: string }[] = [
   { id: 'policy', label: 'Beli Polis' },
@@ -24,6 +25,12 @@ interface OnboardingAgent {
   task_aaji: boolean;
   fdCode?: string;
   sequisCode?: string;
+  // Detail polis (dari backend; dipakai prefill modal "Beli Polis"):
+  policyNumber?: string | null;
+  policyInforceDate?: string | null;
+  policyPremium?: number | null;
+  policyPaymentMode?: string | null;
+  policyFyap?: number | null;
 }
 
 // Mapping task UI -> flag di response backend
@@ -88,7 +95,15 @@ export function OnboardingUpdateTab() {
       const seed: Record<string, Partial<TaskData>> = {};
       calonAgens.forEach((agent) => {
         const tasks: Partial<TaskData> = {};
-        if (agent.task_polis) tasks.policy = { inforceDate: '', policyNumber: '', premium: 0 };
+        if (agent.task_polis) {
+          tasks.policy = {
+            inforceDate: agent.policyInforceDate ?? '',
+            policyNumber: agent.policyNumber ?? '',
+            premium: agent.policyPremium ? Number(agent.policyPremium) : 0,
+            // Data lama (sebelum fitur payment mode) → fallback default 'tahunan'
+            paymentMode: agent.policyPaymentMode || DEFAULT_PAYMENT_MODE,
+          };
+        }
         // PENTING: seed agent_code dengan kode agen resmi Sequis (sequisCode),
         // BUKAN fdCode (kode internal FDPro). Ini perbaikan bug logika di mana
         // fdCode sebelumnya keliru dianggap sebagai kode agen.
@@ -129,50 +144,38 @@ export function OnboardingUpdateTab() {
   const handleSaveTask = async (taskId: TaskId, data: any): Promise<void> => {
     if (!activeAgent) return;
 
-    // Untuk task "agent_code", persist kode agen Sequis ke backend.
-    // Backend akan meng-update kolom sequis_code dan endpoint onboarding-list
-    // akan mengembalikan task_kode = true setelah data tersimpan.
-    if (taskId === 'agent_code') {
-      try {
-        await api.patch(`/api/users/team/${activeAgent.id}/sequis-code`, {
-          sequisCode: data.agentCode,
-        });
-      } catch (err: any) {
-        // Lempar error supaya modal tetap terbuka dan menampilkan pesan kesalahan.
-        throw new Error(err?.message || 'Gagal menyimpan Kode Agen Sequis.');
-      }
+    // PRD 5.7: SEMUA task disimpan ke backend lewat endpoint
+    // POST /api/users/update-onboarding-task (bukan hanya agent_code).
+    // Saat task ke-4 selesai, backend OTOMATIS mengaktivasi calon agen
+    // menjadi FC (respon `activated: true`).
+    let result: any;
+    try {
+      result = await api.post('/api/users/update-onboarding-task', {
+        memberId: activeAgent.id,
+        taskId,
+        data,
+      });
+    } catch (err: any) {
+      // Lempar error supaya modal tetap terbuka dan menampilkan pesan kesalahan.
+      throw new Error(err?.message || 'Gagal menyimpan data task onboarding.');
     }
 
     const current = onboardingData[activeAgent.id] || {};
-    const newData: Record<string, Partial<TaskData>> = {
+    setOnboardingData({
       ...onboardingData,
       [activeAgent.id]: { ...current, [taskId]: data },
-    };
-    setOnboardingData(newData);
+    });
     setModalOpen(false);
 
-    // Sinkronkan ulang dari backend supaya flag task_kode (dan progress bar)
-    // selalu merefleksikan nilai yang tersimpan di database.
-    // Untuk task lain yang belum punya endpoint persistence, data lokal tetap jadi sumber UI.
-    if (taskId === 'agent_code') {
-      fetchAgents();
+    if (result?.activated) {
+      alert(
+        `${activeAgent.nama} telah menyelesaikan seluruh task onboarding dan otomatis diaktivasi menjadi FC.`
+      );
     }
 
-    const agentTasks = newData[activeAgent.id] || {};
-    const completedCount = TASK_DEFINITIONS.filter((t) => isTaskDataComplete(t.id, agentTasks[t.id])).length;
-
-    if (completedCount === 4) {
-      if (window.confirm(`${activeAgent.nama} telah menyelesaikan semua task. Promosikan menjadi FC sekarang?`)) {
-        try {
-          await api.post(`/api/users/team/${activeAgent.id}/promote`, {});
-          alert(`Berhasil mempromosikan ${activeAgent.nama} menjadi FC.`);
-          fetchAgents();
-        } catch (err) {
-          console.error('Failed to promote agent', err);
-          alert('Gagal mempromosikan agen.');
-        }
-      }
-    }
+    // Sinkronkan ulang dari backend supaya flag task & progress bar selalu
+    // merefleksikan nilai yang tersimpan di database.
+    fetchAgents();
   };
 
   // Task dianggap selesai jika sudah ditandai backend ATAU baru disimpan via modal
@@ -185,18 +188,11 @@ export function OnboardingUpdateTab() {
   }
 
   if (agents.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <UserIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">Tidak ada Calon Agen aktif dalam tim Anda saat ini.</p>
-        </CardContent>
-      </Card>
-    );
+    return <TeamEmptyState message="Tidak ada Calon Agen aktif dalam tim Anda saat ini." />;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-y-auto max-h-[calc(100dvh-280px)] pr-2 pb-4">
       {agents.map((agent) => {
         const completedCount = TASK_DEFINITIONS.filter((t) => isDisplayComplete(t.id, agent)).length;
         const isAajiMissing = completedCount === 3 && !isDisplayComplete('aaji_license', agent);

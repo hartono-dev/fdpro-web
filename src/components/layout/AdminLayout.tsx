@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { adminNav } from '@/config/adminNav';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,6 +6,17 @@ import { ProfileMenu } from '@/components/ProfileMenu';
 
 export function AdminLayout() {
   const { user } = useAuth();
+  const location = useLocation();
+
+  // Judul header dinamis: cocokkan path saat ini dengan menu di adminNav.
+  // Untuk sub-halaman (mis. /admin/users/123), tetap tampilkan label menu utama
+  // dengan memakai startsWith — sehingga /admin/users/123 menampilkan "Manajemen Pengguna".
+  const activeLabel =
+    adminNav.find((item) =>
+      item.href === '/admin'
+        ? location.pathname === '/admin'
+        : location.pathname.startsWith(item.href)
+    )?.label || 'Admin Panel';
 
   return (
     <div className="min-h-screen w-full bg-gray-100 flex">
@@ -37,9 +48,9 @@ export function AdminLayout() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex flex-col flex-1">
+            <div className="flex flex-col flex-1">
         <header className="flex h-14 items-center justify-between gap-4 border-b bg-white px-6">
-          <h1 className="text-lg font-semibold text-gray-800">Admin Panel</h1>
+          <h1 className="text-lg font-semibold text-gray-800">{activeLabel}</h1>
           <div>
             {user && <ProfileMenu />}
           </div>

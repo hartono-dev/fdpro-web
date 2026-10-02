@@ -6,7 +6,7 @@ const SolutionSection = () => {
     <section className="bg-white py-20 px-4">
       <div className="max-w-6xl mx-auto">
         <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-800">
-          Solusi FDPro: Kombinasi Tabungan Pendidikan Terproteksi & Peluang Bisnis Sampingan
+          FDPro, Satu Solusi dengan Dua Manfaat
         </h2>
         <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
           <Card className="bg-blue-50 border-blue-200 shadow-md">
@@ -21,14 +21,14 @@ const SolutionSection = () => {
                 <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 text-sm font-bold">1</span>
                 <div>
                   <p className="font-semibold text-gray-800">Pasti Aman</p>
-                  <p className="text-sm text-gray-600">Dana pendidikan anak + pengembalian berkala</p>
+                  <p className="text-sm text-gray-600">Simpanan dengan pengembalian dana berkala</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 text-sm font-bold">2</span>
                 <div>
-                  <p className="font-semibold text-gray-800">Proteksi Keluarga</p>
-                  <p className="text-sm text-gray-600">Bebas setoran jika musibah</p>
+                  <p className="font-semibold text-gray-800">Jaminan Bebas Setoran</p>
+                  <p className="text-sm text-gray-600">Bebas bayar saat terjadi risiko kehidupan, tabungan tetap dilanjutkan otomatis.</p>
                 </div>
               </div>
             </CardContent>
@@ -52,8 +52,8 @@ const SolutionSection = () => {
               <div className="flex items-start gap-3">
                 <span className="bg-teal-600 text-white rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 text-sm font-bold">2</span>
                 <div>
-                  <p className="font-semibold text-gray-800">Sistem Terpandu</p>
-                  <p className="text-sm text-gray-600">Gunakan produk + materi promosi digital</p>
+                  <p className="font-semibold text-gray-800">Materi Marketing</p>
+                  <p className="text-sm text-gray-600">Materi marketing tersedia, Anda cukup fokus membagikan manfaat program ini.</p>
                 </div>
               </div>
             </CardContent>

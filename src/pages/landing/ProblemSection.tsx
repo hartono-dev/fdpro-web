@@ -45,7 +45,7 @@ const ProblemSection = () => {
     <section className="bg-muted py-20 px-4">
       <div className="max-w-7xl mx-auto text-center">
         <h2 className="text-3xl md:text-4xl font-bold text-gray-800 break-words">
-          Mencari Bisnis Sampingan atau Cara Menyiapkan Masa Depan Finansial Keluarga?
+          Lagi Cari Bisnis Sampingan Sekaligus Cara Amankan Masa Depan Finansial Keluarga?
         </h2>
         <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 text-left">
           {personas.map((item) => (

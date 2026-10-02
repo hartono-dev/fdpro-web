@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { ApprovalsDashboard } from '@/components/member/ApprovalsDashboard';
+import { ApprovalHistoryTab } from '@/components/member/ApprovalHistoryTab';
 import TeamTreeViewer from '@/components/member/TeamTreeViewer';
 import { OnboardingUpdateTab } from '@/components/member/OnboardingUpdateTab';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,6 +55,21 @@ const TeamPage = () => {
     return 'struktur';
   };
 
+  // Jumlah tab yang benar-benar tampil untuk user saat ini — dipakai untuk
+  // grid dinamis agar tab (mis. hanya "Team Anda" untuk calon agen) tidak
+  // meninggalkan kolom kosong di TabsList. Menggunakan literal class per jumlah
+  // agar Tailwind JIT tetap mendeteksi kelas yang dihasilkan.
+  const visibleTabCount =
+    (canAccessApproval ? 2 : 0) + // approval + riwayat
+    (canAccessUpdate ? 1 : 0) +   // update
+    (canAccessStruktur ? 1 : 0);  // struktur (Team Anda)
+  const gridColsClass =
+    visibleTabCount === 1 ? 'grid-cols-1'
+    : visibleTabCount === 2 ? 'grid-cols-2'
+    : visibleTabCount === 3 ? 'grid-cols-3'
+    : visibleTabCount === 4 ? 'grid-cols-4'
+    : 'grid-cols-4';
+
   const Badge = ({ count }: { count: number }) => {
     if (count <= 0) return null;
     return (
@@ -73,12 +89,15 @@ const TeamPage = () => {
       </div>
 
       <Tabs defaultValue={getDefaultTab()} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${gridColsClass}`}>
           {canAccessApproval && (
             <TabsTrigger value="approval" className="flex items-center justify-center">
               <span>Approval</span>
               <Badge count={approvalCount} />
             </TabsTrigger>
+          )}
+          {canAccessApproval && (
+            <TabsTrigger value="history">Riwayat</TabsTrigger>
           )}
           {canAccessUpdate && (
             <TabsTrigger value="update" className="flex items-center justify-center">
@@ -87,7 +106,7 @@ const TeamPage = () => {
             </TabsTrigger>
           )}
           {canAccessStruktur && (
-            <TabsTrigger value="struktur">Struktur</TabsTrigger>
+            <TabsTrigger value="struktur">Team Anda</TabsTrigger>
           )}
         </TabsList>
 
@@ -97,8 +116,14 @@ const TeamPage = () => {
           </TabsContent>
         )}
 
+        {canAccessApproval && (
+          <TabsContent value="history">
+            <ApprovalHistoryTab />
+          </TabsContent>
+        )}
+
         {canAccessUpdate && (
-          <TabsContent value="update">
+          <TabsContent value="update" className="min-h-0">
             <OnboardingUpdateTab />
           </TabsContent>
         )}

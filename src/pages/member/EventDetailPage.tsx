@@ -36,6 +36,7 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [fetchFailed, setFetchFailed] = useState(false);
 
   const fetchEvent = useCallback(
     async (signal?: AbortSignal) => {
@@ -44,16 +45,21 @@ export default function EventDetailPage() {
       try {
         const res = await api.events.get(id, signal);
         setEvent(res.data.event);
+        setFetchFailed(false);
       } catch (error: any) {
-        if (!error?.isAbort) {
+        // Abaikan error akibat pembatalan request (abort) — jangan navigasi otomatis.
+        // Navigasi otomatis di sini berbahaya: dapat menyebabkan unmount/mount berulang
+        // jika AbortController dibatalkan saat re-render, memicu loop tak terbatas.
+        // Cukup tampilkan pesan error dan biarkan pengguna navigasi secara manual.
+        if (!error?.isAbort && !signal?.aborted) {
           toast.error('Gagal memuat detail event.', { description: error.message });
-          navigate('/member/event');
+          setFetchFailed(true);
         }
       } finally {
         setLoading(false);
       }
     },
-    [id, navigate]
+    [id]
   );
 
   useEffect(() => {
@@ -100,10 +106,12 @@ export default function EventDetailPage() {
     );
   }
 
-  if (!event) {
+    if (!event || fetchFailed) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-500 mb-4">Event tidak ditemukan.</p>
+        <p className="text-gray-500 mb-4">
+          {fetchFailed ? 'Gagal memuat detail event.' : 'Event tidak ditemukan.'}
+        </p>
         <Button variant="outline" onClick={() => navigate('/member/event')}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Kembali
         </Button>
@@ -152,8 +160,6 @@ export default function EventDetailPage() {
             </dd>
             <dt className="text-gray-500">Jenis Meeting:</dt>
             <dd>{meetingTypeLabel}</dd>
-            <dt className="text-gray-500">Lokasi:</dt>
-            <dd>{event.location || '-'}</dd>
             {event.description && (
               <>
                 <dt className="text-gray-500">Deskripsi:</dt>

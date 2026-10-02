@@ -1,6 +1,7 @@
-import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
+import { Link } from "react-router-dom";
 import { LeadFormModal } from "@/components/LeadFormModal";
+import { useReferralTracker } from "@/hooks/useReferralTracker";
 import type { RefObject } from "react";
 
 interface HeroSectionProps {
@@ -8,17 +9,9 @@ interface HeroSectionProps {
 }
 
 const HeroSection = ({ ctaRef }: HeroSectionProps) => {
-  const location = useLocation();
-  const params = new URLSearchParams(location.search);
-  const currentReferralId = params.get("ref") || undefined;
+  const { referralId } = useReferralTracker();
 
-  const showReferralButtons = !!currentReferralId;
-
-  const registrationButton = (
-    <Button variant="secondary" size="lg" className="text-sm px-8 py-5 h-auto">
-      Daftar Kemitraan
-    </Button>
-  );
+  const showReferralButtons = !!referralId;
 
   const consultationButton = (
     <LeadFormModal
@@ -39,8 +32,9 @@ const HeroSection = ({ ctaRef }: HeroSectionProps) => {
           </span>
         </div>
 
-        <h1 className="text-[clamp(1.3rem,4.5vw,2.5rem)] md:text-5xl font-bold leading-snug text-primary-foreground max-w-3xl mx-auto">
-          Amankan Masa Depan Anak & Bangun Penghasilan Sampingan Terpandu
+        <h1 className="text-[clamp(1.5rem,4.5vw,2.75rem)] md:text-5xl font-bold leading-snug text-primary-foreground max-w-3xl mx-auto">
+          <span className="block">Bangun Penghasilan Sampingan yang Terbimbing</span>
+          <span className="block text-2xl md:text-3xl font-medium text-gray-300 mt-2">sambil amankan masa depan anak</span>
         </h1>
 
         <p className="mt-3 md:mt-6 text-xs md:text-lg text-gray-300 max-w-3xl mx-auto leading-relaxed">
@@ -50,11 +44,11 @@ const HeroSection = ({ ctaRef }: HeroSectionProps) => {
         <div ref={ctaRef} className="mt-5 md:mt-10 flex flex-col justify-center items-center gap-3">
           {showReferralButtons ? (
             <>
-              <LeadFormModal
-                trigger={registrationButton}
-                formType="registration"
-                referralId={currentReferralId}
-              />
+              <Link to={referralId ? `/register?ref=${referralId}` : "/register"}>
+                <Button variant="secondary" size="lg" className="text-sm px-8 py-5 h-auto">
+                  Daftar Kemitraan
+                </Button>
+              </Link>
               <div className="text-center">
                 <span className="text-gray-300 text-xs">Masih ada yang ingin ditanyakan? </span>
                 {consultationButton}
@@ -73,7 +67,7 @@ const HeroSection = ({ ctaRef }: HeroSectionProps) => {
         </div>
 
         <p className="mt-3 text-[10px] md:text-xs text-gray-400">
-          🛡️ Setoran 100% Masuk ke Tabungan Virtual Account Resmi OJK. Tanpa Biaya Keanggotaan Platform FDPro.
+          🛡️ 100% simpanan disetorkan ke Virtual Account asuransi. FDPro tidak memungut biaya keanggotaan sama sekali.
         </p>
       </div>
     </section>

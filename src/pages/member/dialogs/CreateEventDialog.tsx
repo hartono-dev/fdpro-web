@@ -1,24 +1,23 @@
-import {
-  Dialog,
+import { Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogDescription,
 } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DatePicker } from '@/components/ui/DatePicker';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Textarea } from '@/components/ui/textarea';
+import { DatePicker } from '@/components/ui/DatePicker';
+import { TimePicker } from '@/components/ui/TimePicker';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { addYears, parseISO } from 'date-fns';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
-import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
 import InviteTeamDialog from './InviteTeamDialog'; // Placeholder for the new dialog
 
@@ -26,13 +25,12 @@ import InviteTeamDialog from './InviteTeamDialog'; // Placeholder for the new di
 const eventSchema = z.object({
   title: z.string().min(3, 'Judul minimal 3 karakter'),
   description: z.string().optional(),
-  type: z.string().optional(),
-  startDate: z.date(),
+  type: z.string(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal tidak valid (YYYY-MM-DD)'),
   startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format waktu tidak valid (HH:MM)'),
-  endDate: z.date(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal tidak valid (YYYY-MM-DD)'),
   endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format waktu tidak valid (HH:MM)'),
   meetingType: z.string().min(1, 'Jenis pertemuan harus dipilih'),
-  location: z.string().optional(),
   accessType: z.string().min(1, 'Jenis akses harus dipilih'),
 });
 
@@ -50,9 +48,24 @@ const meetingTypeOptions = [
   { value: 'hybrid', label: 'Hybrid' },
 ];
 
+const typeOptions = [
+  { value: 'Pelatihan', label: 'Pelatihan' },
+  { value: 'Seminar', label: 'Seminar' },
+  { value: 'Meeting', label: 'Meeting' },
+  { value: 'BOS', label: 'BOS' },
+];
+
+/**
+ * Batas atas tanggal event: +10 tahun dari hari ini. Tidak dipakai sebagai
+ * "deadline keras" bisnis — hanya mencegah dropdown/mis-klik meleset terlalu
+ * jauh ke masa depan. Dihitung sekali di module scope (nilai konstan).
+ */
+const eventMaxDate = addYears(new Date(), 10);
+
 export default function CreateEventDialog({ isOpen, onClose, onEventCreated }: CreateEventDialogProps) {
   const [isSubmitting, setSubmitting] = useState(false);
   const [isInviteModalOpen, setInviteModalOpen] = useState(false);
+  const [selectedInvitees, setSelectedInvitees] = useState<string[]>([]);
   const {
     register,
     handleSubmit,
@@ -73,10 +86,17 @@ export default function CreateEventDialog({ isOpen, onClose, onEventCreated }: C
       const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
 
       const formatTime = (date: Date) => date.toTimeString().slice(0, 5);
+      // Format tanggal lokal YYYY-MM-DD agar cocok dengan <input type="date">
+      const toDateInput = (date: Date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      };
 
       reset({
-        startDate: now,
-        endDate: now,
+        startDate: toDateInput(now),
+        endDate: toDateInput(now),
         startTime: formatTime(startTime),
         endTime: formatTime(endTime),
         accessType: 'terbatas',
@@ -84,23 +104,23 @@ export default function CreateEventDialog({ isOpen, onClose, onEventCreated }: C
         description: '',
         type: '',
         meetingType: '',
-        location: '',
       });
+      setSelectedInvitees([]);
     }
   }, [isOpen, reset]);
 
-  const meetingType = useWatch({ control, name: 'meetingType' });
+  const watchedStartDate = useWatch({ control, name: 'startDate' });
   const onSubmit = async (data: EventFormData) => {
     setSubmitting(true);
     const payload = {
       ...data,
-      location: data.meetingType === 'online' ? 'Online' : data.location,
+      invitees: selectedInvitees,
     };
 
     try {
       const response = await api.events.create(payload);
       toast.success('Event berhasil dibuat!');
-      onEventCreated(response.data.event);
+      onEventCreated((response as any)?.event ?? (response as any)?.data?.event ?? null);
       handleClose();
     } catch (error: any) {
       toast.error('Gagal membuat event', {
@@ -113,28 +133,44 @@ export default function CreateEventDialog({ isOpen, onClose, onEventCreated }: C
 
   const handleClose = () => {
     reset();
+    setSelectedInvitees([]);
     onClose();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px]" hideCloseButton>
         <DialogHeader>
           <DialogTitle>Buat Event</DialogTitle>
-          <DialogDescription>
-            Isi detail di bawah ini untuk membuat jadwal event atau kegiatan baru.
-          </DialogDescription>
         </DialogHeader>
+        <button
+          type="button"
+          onClick={handleClose}
+          className="absolute right-4 top-4 text-green-600 font-medium text-sm hover:text-green-700"
+        >
+          Batal
+        </button>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4 max-h-[85vh] overflow-y-auto pb-20">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="title">Judul Event</Label>
-              <Input id="title" {...register('title')} />
+              <Input id="title" {...register('title')} placeholder="Isi judul event" />
               {errors.title && <p className="text-xs text-red-500">{errors.title.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="type">Tipe Event</Label>
-              <Input id="type" {...register('type')} placeholder="cth: Pelatihan, Seminar" />
+              <Controller
+                name="type"
+                control={control}
+                render={({ field }) => (
+                  <SearchSelect
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    options={typeOptions}
+                    placeholder="Pilih tipe event"
+                  />
+                )}
+              />
             </div>
           </div>
           
@@ -144,13 +180,33 @@ export default function CreateEventDialog({ isOpen, onClose, onEventCreated }: C
               <Controller
                 name="startDate"
                 control={control}
-                render={({ field }) => <DatePicker selected={field.value} onSelect={field.onChange} />}
+                render={({ field }) => (
+                  <DatePicker
+                    id="startDate"
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    minDate={new Date()}
+                    maxDate={eventMaxDate}
+                    placeholder="Pilih tanggal mulai"
+                  />
+                )}
               />
               {errors.startDate && <p className="text-xs text-red-500">{errors.startDate.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="startTime">Waktu Mulai</Label>
-              <Input id="startTime" type="text" inputMode="numeric" maxLength={5} placeholder="HH:MM" {...register('startTime')} />
+              <Controller
+                name="startTime"
+                control={control}
+                render={({ field }) => (
+                  <TimePicker
+                    id="startTime"
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder="Pilih waktu mulai"
+                  />
+                )}
+              />
               {errors.startTime && <p className="text-xs text-red-500">{errors.startTime.message}</p>}
             </div>
             <div className="space-y-2">
@@ -158,18 +214,40 @@ export default function CreateEventDialog({ isOpen, onClose, onEventCreated }: C
               <Controller
                 name="endDate"
                 control={control}
-                render={({ field }) => <DatePicker selected={field.value} onSelect={field.onChange} />}
+                render={({ field }) => (
+                  <DatePicker
+                    id="endDate"
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    minDate={
+                      watchedStartDate ? parseISO(watchedStartDate) : new Date()
+                    }
+                    maxDate={eventMaxDate}
+                    placeholder="Pilih tanggal selesai"
+                  />
+                )}
               />
               {errors.endDate && <p className="text-xs text-red-500">{errors.endDate.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="endTime">Waktu Selesai</Label>
-              <Input id="endTime" type="text" inputMode="numeric" maxLength={5} placeholder="HH:MM" {...register('endTime')} />
+              <Controller
+                name="endTime"
+                control={control}
+                render={({ field }) => (
+                  <TimePicker
+                    id="endTime"
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder="Pilih waktu selesai"
+                  />
+                )}
+              />
               {errors.endTime && <p className="text-xs text-red-500">{errors.endTime.message}</p>}
             </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="meetingType">Jenis Meeting</Label>
               <Controller
@@ -180,13 +258,13 @@ export default function CreateEventDialog({ isOpen, onClose, onEventCreated }: C
                     value={field.value}
                     onValueChange={field.onChange}
                     options={meetingTypeOptions}
-                    placeholder="Pilih"
+                    placeholder="Pilih jenis meeting"
                   />
                 )}
               />
               {errors.meetingType && <p className="text-xs text-red-500">{errors.meetingType.message}</p>}
             </div>
-             <div className="space-y-2">
+            <div className="space-y-2">
               <Label>Jenis Undangan</Label>
               <Controller
                 name="accessType"
@@ -212,15 +290,11 @@ export default function CreateEventDialog({ isOpen, onClose, onEventCreated }: C
             </div>
           </div>
 
-          <div className={cn("space-y-2", meetingType === 'online' && 'hidden')}>
-            <Label htmlFor="location">Lokasi</Label>
-            <Input id="location" {...register('location')} placeholder="Lokasi" />
-            {errors.location && <p className="text-xs text-red-500">{errors.location.message}</p>}
-          </div>
-
           <div className="space-y-2">
             <Button type="button" variant="outline" onClick={() => setInviteModalOpen(true)}>
-              Undang Peserta
+              {selectedInvitees.length > 0
+                ? `Undang Peserta (${selectedInvitees.length} dipilih)`
+                : 'Undang Peserta'}
             </Button>
           </div>
 
@@ -245,6 +319,7 @@ export default function CreateEventDialog({ isOpen, onClose, onEventCreated }: C
         <InviteTeamDialog
           isOpen={isInviteModalOpen}
           onClose={() => setInviteModalOpen(false)}
+          onSave={(userIds) => setSelectedInvitees(userIds)}
         />
       </DialogContent>
     </Dialog>

@@ -10,7 +10,9 @@ export function BottomNav() {
   const location = useLocation();
   const [poolLeadsCount, setPoolLeadsCount] = useState(0);
 
-  // Ambil jumlah leads active yang belum di-pick-up (direfresh saat route berubah)
+    // Ambil jumlah leads active yang belum di-pick-up.
+  // Hanya fetch saat user berubah (login/logout) — bukan untuk setiap perubahan route,
+  // untuk mencegah spam request saat navigasi (mis. ke halaman detail event).
   useEffect(() => {
     if (!user) return;
 
@@ -30,7 +32,7 @@ export function BottomNav() {
     return () => {
       cancelled = true;
     };
-  }, [user, location.pathname]);
+  }, [user]);
 
   if (!user) return null;
 
@@ -38,7 +40,7 @@ export function BottomNav() {
   const navItems = memberNav;
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-50 border-t bg-background/95 backdrop-blur-sm">
+    <nav className="fixed bottom-0 inset-x-0 z-50 border-t bg-background/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
       <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}>
         {navItems.map(item => {
           const isDisabled = item.disabledFor?.includes(user.role);

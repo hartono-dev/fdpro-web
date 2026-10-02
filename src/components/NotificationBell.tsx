@@ -53,7 +53,12 @@ export function NotificationBell() {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
       setIsOpen(open);
-      if (open) handleMarkAsRead();
+      if (open) {
+        handleMarkAsRead();
+        // Sinkronkan daftar setiap kali dialog dibuka: item obsolete
+        // (kandidat sudah approve/reject) langsung hilang dari tampilan.
+        fetchNotifications();
+      }
     }}>
       <DialogTrigger asChild>
         <div className="relative cursor-pointer">

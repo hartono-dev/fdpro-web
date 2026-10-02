@@ -2,7 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { User, Key, Share2, LogOut, Check, Camera, AlertCircle, Pencil } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
+import { api, getImageUrl } from "@/lib/api";
+import { getCroppedImg } from "@/lib/imageUtils";
+import Cropper from "react-easy-crop";
+import "react-easy-crop/react-easy-crop.css";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
@@ -79,7 +82,7 @@ export function ProfileMenu() {
           className="h-9 w-9 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors flex items-center justify-center cursor-pointer select-none border border-primary/20"
         >
           {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt={user.name} className="h-9 w-9 rounded-full object-cover" />
+                        <img src={getImageUrl(user.avatarUrl)} alt={user.name} className="h-9 w-9 rounded-full object-cover" />
           ) : (
             <span className="text-primary font-bold text-sm">{initials(user.name)}</span>
           )}
@@ -92,9 +95,9 @@ export function ProfileMenu() {
               className="absolute right-0 top-full mt-2 w-72 bg-white rounded-lg shadow-lg border p-4 z-50"
             >
               <div className="flex flex-col items-center text-center space-y-2">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-xl overflow-hidden">
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-xl overflow-hidden cursor-pointer" onClick={() => { setShowUploadModal(true); handleClose(); }}>
                   {user.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={user.name} className="h-16 w-16 rounded-full object-cover" />
+                                        <img src={getImageUrl(user.avatarUrl)} alt={user.name} className="h-16 w-16 rounded-full object-cover" />
                   ) : (
                     initials(user.name)
                   )}
@@ -107,6 +110,7 @@ export function ProfileMenu() {
                 <Badge variant={user.role === 'super_admin' ? 'default' : 'secondary'}>
                   {user.role === 'super_admin' ? 'Super Admin' : 'Admin'}
                 </Badge>
+
               </div>
 
               <div className="border-t my-3"></div>
@@ -129,8 +133,8 @@ export function ProfileMenu() {
               className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border p-2 z-50"
             >
               <div className="flex items-center gap-3 p-2 border-b mb-2">
-                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600">
-                  {user.avatarUrl ? <img src={user.avatarUrl} alt={user.name} className="h-10 w-10 rounded-full object-cover"/> : initials(user.name)}
+                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600 cursor-pointer" onClick={() => { setShowUploadModal(true); handleClose(); }}>
+                                  {user.avatarUrl ? <img src={getImageUrl(user.avatarUrl)} alt={user.name} className="h-10 w-10 rounded-full object-cover"/> : initials(user.name)}
                 </div>
                 <div>
                   <p className="font-semibold text-sm text-gray-800 truncate" title={user.name}>{user.name}</p>
@@ -205,66 +209,153 @@ function ReferralModal({ isOpen, onClose, referralCode, copied, onCopy }: {
 }
 
 export default ProfileMenu;
-
 function UploadAvatarModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void; }) {
   const { user, updateUser } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(user?.avatarUrl || null);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(() => getImageUrl(user?.avatarUrl) ?? null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) { setError("Ukuran file maksimal 2MB."); return; }
-      if (!['image/jpeg', 'image/png'].includes(file.type)) { setError("Hanya format JPG atau PNG."); return; }
-      setError(null);
-      setSelectedFile(file);
-      setPreview(URL.createObjectURL(file));
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setError("Ukuran file maksimal 5MB."); return; }
+    if (!["image/jpeg", "image/png", "image/webp", "image/jpg"].includes(file.type)) {
+      setError("Hanya format WebP, JPG, atau PNG yang diizinkan.");
+      return;
     }
+    setError(null);
+    setSelectedFile(file);
+    setImageSrc(URL.createObjectURL(file));
   };
-  
+
+  const onCropComplete = (
+    _croppedArea: any,
+    croppedAreaPixels: { x: number; y: number; width: number; height: number },
+  ) => {
+    console.log('[UploadAvatarModal] onCropComplete fired:', croppedAreaPixels);
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  // React 19 automatic batching membuat setState di dalam onMediaLoad (native onLoad)
+  // menjadi async, sehingga onCropComplete tidak terpicu pada initial image load.
+  // Solution: set croppedAreaPixels secara manual pada onMediaLoaded untuk
+  // meng-enable tombol segera setelah gambar siap.
+  const onMediaLoaded = (mediaSize: { width: number; height: number; naturalWidth: number; naturalHeight: number }) => {
+    console.log('[UploadAvatarModal] onMediaLoaded fired:', mediaSize);
+    // Set initial crop area ke square pusat penuh gambar natural (aspect 1:1)
+    const size = Math.min(mediaSize.naturalWidth, mediaSize.naturalHeight);
+    setCroppedAreaPixels({
+      x: Math.round((mediaSize.naturalWidth - size) / 2),
+      y: Math.round((mediaSize.naturalHeight - size) / 2),
+      width: size,
+      height: size,
+    });
+  };
+
+  // --- Upload: crop -> resize -> upload ---
   const handleUpload = async () => {
+    console.log('[UploadAvatarModal] handleUpload called', { hasFile: !!selectedFile, hasImageSrc: !!imageSrc, hasCroppedArea: !!croppedAreaPixels });
     if (!selectedFile) return;
     setUploading(true);
-    const formData = new FormData();
-    formData.append("avatar", selectedFile);
-
+    setError(null);
     try {
-      const response = await api.upload("/api/user/upload-avatar", formData);
-      updateUser({ avatarUrl: response.data.url });
+      const formData = new FormData();
+      if (imageSrc && croppedAreaPixels) {
+        try {
+          const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels, 400);
+          formData.append("avatar", croppedBlob, "avatar.webp");
+        } catch (cropErr) {
+          console.warn('[UploadAvatarModal] Canvas crop failed, sending original file:', cropErr);
+          formData.append("avatar", selectedFile, selectedFile.name);
+        }
+      } else {
+        formData.append("avatar", selectedFile, selectedFile.name);
+      }
+      console.log('[UploadAvatarModal] Sending upload to /api/users/upload-avatar');
+      const response = await api.upload("/api/users/upload-avatar", formData);
+            console.log('[UploadAvatarModal] Upload response:', response);
+      // Cache-busting: nama file avatar di backend sudah statis (avatar_<id>.webp),
+      // sehingga browser akan cache & tidak merender yang baru. Tambahkan query
+      // string ?t=<timestamp> agar browser memaksa-refresh gambar setelah upload.
+            const responseUrl = (response as any)?.url ?? (response as any)?.data?.url ?? null;
+      const newUrl = responseUrl ? `${responseUrl}?t=${new Date().getTime()}` : undefined;
+      updateUser({ avatarUrl: newUrl });
       onClose();
     } catch (err: any) {
-      setError(err.message || "Gagal mengunggah foto.");
+      console.error('[UploadAvatarModal] Upload error:', err);
+      setError(err?.message || "Gagal mengunggah foto.");
     } finally {
       setUploading(false);
     }
   };
 
+  const handleBack = () => {
+    setSelectedFile(null);
+    setImageSrc(null);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedAreaPixels(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   useEffect(() => {
     if (!isOpen) {
       setSelectedFile(null);
-      setPreview(user?.avatarUrl || null);
+      setImageSrc(null);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setCroppedAreaPixels(null);
+      setPreview(getImageUrl(user?.avatarUrl) ?? null);
       setError(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }, [isOpen, user?.avatarUrl]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Ganti Foto Profil</DialogTitle></DialogHeader>
-        <div className="py-4 space-y-4 flex flex-col items-center">
-          <div className="w-32 h-32 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50 cursor-pointer hover:border-primary transition-colors" onClick={() => fileInputRef.current?.click()}>
-            {preview ? <img src={preview} alt="Preview" className="w-full h-full object-cover" /> : <Camera className="h-8 w-8 text-gray-400" />}
-          </div>
-          <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png" onChange={handleFileSelect} className="hidden" />
-          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>Pilih Foto</Button>
-          {error && <div className="flex items-center gap-2 text-sm text-red-600"><AlertCircle className="h-4 w-4" /><span>{error}</span></div>}
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Ganti Foto Profil</DialogTitle>
+          <DialogDescription>
+            {imageSrc
+              ? "Pastikan gambar dengan rasio 1:1, lalu klik Simpan."
+              : "Pilih foto profil baru (WebP/JPG/PNG, maks 5MB). Gambar akan otomatis di-crop ke bentuk persegi, di-resize ke 400x400, dan dikonversi ke WebP sebelum dikirim."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          {imageSrc ? (
+            <div className="space-y-4">
+              <div className="relative w-full h-80 bg-gray-100 rounded-lg overflow-hidden">
+                <Cropper image={imageSrc} crop={crop} onCropChange={setCrop} zoom={zoom} onZoomChange={setZoom} aspect={1} onCropComplete={onCropComplete} onMediaLoaded={onMediaLoaded} />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-600">Zoom:</label>
+                <input type="range" min={1} max={3} step={0.1} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="flex-1" />
+              </div>
+              {error && <div className="flex items-center gap-2 text-sm text-red-600"><AlertCircle className="h-4 w-4" /><span>{error}</span></div>}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center space-y-4">
+              <div className="w-32 h-32 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50 cursor-pointer hover:border-primary transition-colors" onClick={() => fileInputRef.current?.click()}>
+                {preview ? <img src={preview} alt="Current" className="w-full h-full object-cover" /> : <Camera className="h-8 w-8 text-gray-400" />}
+              </div>
+              <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.webp" onChange={handleFileSelect} className="hidden" />
+              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>Pilih Foto</Button>
+              {error && <div className="flex items-center gap-2 text-sm text-red-600"><AlertCircle className="h-4 w-4" /><span>{error}</span></div>}
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
-          <Button type="button" onClick={handleUpload} disabled={!selectedFile || uploading}>{uploading ? "Mengunggah..." : "Simpan"}</Button>
+          <Button type="button" variant="outline" onClick={onClose} disabled={uploading}>Batal</Button>
+          {imageSrc && <Button type="button" variant="outline" onClick={handleBack} disabled={uploading}>Kembali</Button>}
+            {imageSrc && <Button type="button" onClick={handleUpload} disabled={uploading}>{uploading ? "Menyimpan..." : "Crop & Simpan"}</Button>}
         </div>
       </DialogContent>
     </Dialog>

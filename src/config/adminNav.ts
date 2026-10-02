@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, UserPlus, ScrollText } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, ScrollText, Settings } from 'lucide-react';
 
 export type NavItem = {
   href: string;
@@ -16,8 +16,13 @@ export const adminNav: NavItem[] = [
   },
   {
     href: '/admin/users',
-    label: 'Users',
+    label: 'Manajemen Pengguna',
     icon: Users,
+  },
+  {
+    href: '/admin/settings',
+    label: 'Pengaturan Sistem',
+    icon: Settings,
   },
   {
     href: '/admin/create-admin',

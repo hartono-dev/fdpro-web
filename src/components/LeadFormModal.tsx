@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import {
   Dialog,
@@ -10,6 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { Label } from "@/components/ui/label";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import {
@@ -17,6 +19,7 @@ import {
 } from "@/data/indonesia";
 import { useAddress } from "@/hooks/useAddress";
 import { useReferralName } from "@/hooks/useReferralName";
+import { getStoredReferral } from "@/lib/referralUtils";
 import { api } from "@/lib/api";
 
 type LeadFormModalProps = {
@@ -30,20 +33,35 @@ export function LeadFormModal({ trigger, formType, referralId }: LeadFormModalPr
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
-
   const [country, setCountry] = useState("ID");
   const [province, setProvince] = useState("");
   const [city, setCity] = useState("");
   const [district, setDistrict] = useState("");
   const [village, setVillage] = useState("");
-  const [postalCode, setPostalCode] = useState("");
+  const [postalCode, setPostalCode] = useState("")
+  const [dob, setDob] = useState("");
   const [rt, setRt] = useState("");
   const [rw, setRw] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const isConsultation = formType === 'consultation';
 
-  // Resolve kode FDPro menjadi nama mitra referral untuk ditampilkan
-  const { name: referralName } = useReferralName(referralId);
+    // Referral efektif: ambil dari ?ref= (Incognito URL) → prop explisit → localStorage.
+  // First-Click-Win via localStorage (getStoredReferral) sudah dipilih di sini;
+  // ?ref= di-URL lebih diprioritaskan hanya bila valid (tidak kosong).
+    // Semua nilai disanitize ke null (bukan undefined) agar JSON yang dikirim
+  // eksplisit `fdCode: null` ketika tidak ada referral — backend akan menolak
+  // dengan HTTP 400 karena fdCode sekarang required (PRD §5.2.x keamanan).
+  const [searchParams] = useSearchParams();
+  const urlRef = searchParams.get("ref");
+  const urlRefClean = urlRef && urlRef.trim() ? urlRef.trim() : null;
+  const effectiveReferralId = (urlRefClean || referralId || getStoredReferral() || null) ?? null;
+
+    // Resolve kode FDPro menjadi nama mitra referral untuk ditampilkan.
+  // `useReferralName` menerima `string | undefined`; konversi `null` → `undefined`
+  // di sini agar tidak mengubah tipe `effectiveReferralId` (string | null) yang
+  // disengaja dipakai eksplisit di payload JSON di bawah.
+  const { name: referralName } = useReferralName(effectiveReferralId ?? undefined);
 
   const {
     provinces,
@@ -97,6 +115,16 @@ export function LeadFormModal({ trigger, formType, referralId }: LeadFormModalPr
     setRw(val);
   }
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailError("Format email tidak valid (contoh: nama@email.com)");
+      return false;
+    }
+    setEmailError(null);
+    return true;
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
@@ -105,25 +133,32 @@ export function LeadFormModal({ trigger, formType, referralId }: LeadFormModalPr
     const formData = new FormData(event.currentTarget);
     const data = Object.fromEntries(formData.entries());
 
+    if (!validateEmail(data.email as string)) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       if (isConsultation) {
-        const payload = {
+                const payload = {
           name: data.name,
           phone: data.whatsapp,
           email: data.email,
           cityDomicile: data.city,
-          type: referralId ? 'referral' : 'pool',
-          referralId: referralId || undefined,
+          type: effectiveReferralId ? 'referral' : 'pool',
+          referralId: effectiveReferralId ?? null,
         };
-        await api.post('/api/leads', payload);
+        await api.leads.create(payload);
       } else {
           const payload = {
             name: data.name,
             email: data.email,
             phone: data.whatsapp,
-            password: 'FDPro' + (data.whatsapp as string).slice(-4),
+            // Password TIDAK diisi/dikirim dari client (PRD v1.0): password
+            // default dibuat sistem saat aktivasi final & dikirim via Welcome Email.
+            nik: data.ktp,
             pob: data.pob,
-            dob: data.dob,
+            dob: dob,
             gender: data.gender,
             address: data.address,
             country: country,
@@ -134,18 +169,30 @@ export function LeadFormModal({ trigger, formType, referralId }: LeadFormModalPr
             rt: data.rt,
             rw: data.rw,
             postalCode: postalCode,
-            referralId: referralId || undefined,
+                    fdCode: effectiveReferralId,
             mustChangePwd: true,
           };
-        await api.post('/api/auth/register', payload);
-      }
+          const res = await api.post('/api/auth/register', payload);
+          void res;
+        }
       setIsSuccess(true);
       setTimeout(() => {
         setIsOpen(false);
         setTimeout(() => setIsSuccess(false), 500);
       }, 3000);
-    } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat mengirim data.');
+        } catch (err: any) {
+      // Dev: tampilkan error code/status agar frontend dapat menyelidiki
+      // (mis. 400 REFERRAL_NOT_FOUND vs 500 constraint hint dari backend).
+      const isDev = import.meta.env.MODE === "development";
+      let msg = err.message || "Terjadi kesalahan saat mengirim data.";
+      if (isDev) {
+        const extra: string[] = [];
+        if (err.code) extra.push(`code:${err.code}`);
+        if (err.status) extra.push(`http:${err.status}`);
+        if (err.meta) extra.push(`meta:${JSON.stringify(err.meta).slice(0, 120)}`);
+        if (extra.length) msg += ` (${extra.join(", ")})`;
+      }
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -179,15 +226,15 @@ export function LeadFormModal({ trigger, formType, referralId }: LeadFormModalPr
           <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>
-              {isConsultation ? "Konsultasi Program & Kemitraan (Gratis)" : "Form Pendaftaran Kemitraan"}
+              {isConsultation ? "Form Konsultasi Kemitraan" : "Form Pendaftaran Kemitraan"}
             </DialogTitle>
             <DialogDescription>
               {isConsultation
                 ? "Dapatkan panduan simulasi tabungan terproteksi & potensi second income yang sesuai dengan kondisi Anda."
                 : `Lengkapi data diri sesuai KTP untuk proses verifikasi kemitraan.`
               }
-              {!isConsultation && referralId && (
-                <span className="block mt-1 font-semibold text-primary">Referral: {referralName || referralId}</span>
+              {!isConsultation && effectiveReferralId && (
+                <span className="block mt-1 font-semibold text-primary">Referral: {referralName || effectiveReferralId}</span>
               )}
             </DialogDescription>
           </DialogHeader>
@@ -223,7 +270,22 @@ export function LeadFormModal({ trigger, formType, referralId }: LeadFormModalPr
                   type="email" 
                   placeholder={isConsultation ? "nama@email.com" : "nama@email.com"} 
                   required 
+                  onChange={() => {
+                    // Hanya menghapus error yang ada — validasi format email
+                    // TIDAK dilakukan real-time tiap ketik (onBlur + on-submit saja).
+                    if (emailError) setEmailError(null);
+                    if (error) setError(null);
+                  }}
+                  // Trigger validasi format email saat pengguna meninggalkan kolom
+                  // (on-blur), bukan saat mengetik. Kolom kosong dibiarkan ke
+                  // validasi native required pada saat submit.
+                  onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                    if (e.target.value.trim()) validateEmail(e.target.value);
+                  }}
+                  aria-invalid={!!emailError}
+                  className={emailError ? "border-red-500 text-red-600" : ""}
                 />
+                {emailError && <p className="text-red-500 text-xs mt-1 font-medium" role="alert">{emailError}</p>}
               </div>
             </div>
 
@@ -243,7 +305,13 @@ export function LeadFormModal({ trigger, formType, referralId }: LeadFormModalPr
                   </div>
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="dob">Tanggal Lahir</Label>
-                    <Input id="dob" name="dob" type="date" required />
+                    <DatePicker
+                      id="dob"
+                      value={dob}
+                      onValueChange={setDob}
+                      placeholder="Pilih tanggal lahir"
+                      maxDate={new Date()}
+                    />
                   </div>
                 </div>
 
@@ -345,7 +413,7 @@ export function LeadFormModal({ trigger, formType, referralId }: LeadFormModalPr
                   {/* Kode Pos */}
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="postal_code">Kode Pos</Label>
-                    <Input id="postal_code" name="postal_code" placeholder="Otomatis terisi" value={postalCode} readOnly />
+                    <Input id="postal_code" name="postal_code" placeholder="Otomatis terisi dari kelurahan" value={postalCode} disabled />
                   </div>
                 </div>
               </>
@@ -388,14 +456,9 @@ export function LeadFormModal({ trigger, formType, referralId }: LeadFormModalPr
           </div>
           <DialogFooter className="flex-col gap-2">
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Mengirim...' : (isConsultation ? "MULAI KONSULTASI GRATIS" : "Konfirmasi & Daftar Sekarang")}
+                {isLoading ? 'Mengirim...' : (isConsultation ? "KONSULTASI GRATIS" : "Konfirmasi & Daftar Sekarang")}
               </Button>
               {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-              {isConsultation && (
-                <p className="text-[10px] text-gray-500 text-center flex items-center justify-center gap-1">
-                  <span>🔒</span> Data Anda aman & tim kami akan menghubungi via WhatsApp.
-                </p>
-              )}
             </DialogFooter>
           </form>
         )}

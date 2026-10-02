@@ -50,21 +50,18 @@ const CalonAgentDashboard = () => {
   ]);
 
   useEffect(() => {
-    // This part remains as it might have its own API call in the future
+    // PRD 2 — Prioritas 2: progress onboarding di-load dari backend
+    // (GET /api/users/onboarding-status), menggantikan data dummy
+    // Promise.resolve. Status 4 task di-evaluasi di backend via
+    // evaluateOnboardingTasks → checklist centang di UI selalu akurat vs DB.
     const fetchProgress = async () => {
       try {
-        const progressData = await Promise.resolve({
-          beliPolis: false,
-          dapatkanKodeAgen: false,
-          ikutiPelatihan: false,
-          dapatkanLisensiAaji: false,
-        });
-
+        const progressData = await api.get('/api/users/onboarding-status');
         setSteps(prevSteps => prevSteps.map(step => {
-          if (step.title === "Beli Polis") return { ...step, completed: progressData.beliPolis };
-          if (step.title === "Dapatkan Kode Agen") return { ...step, completed: progressData.dapatkanKodeAgen };
-          if (step.title === "Ikuti Pelatihan") return { ...step, completed: progressData.ikutiPelatihan };
-          if (step.title === "Dapatkan Lisensi AAJI") return { ...step, completed: progressData.dapatkanLisensiAaji };
+          if (step.title === "Beli Polis") return { ...step, completed: Boolean(progressData.policy) };
+          if (step.title === "Dapatkan Kode Agen") return { ...step, completed: Boolean(progressData.agentCode) };
+          if (step.title === "Ikuti Pelatihan") return { ...step, completed: Boolean(progressData.training) };
+          if (step.title === "Dapatkan Lisensi AAJI") return { ...step, completed: Boolean(progressData.aajiLicense) };
           return step;
         }));
       } catch (error) {
@@ -114,9 +111,42 @@ const CalonAgentDashboard = () => {
   return (
     <div className="w-full px-4 md:px-8 lg:px-12 space-y-6 pb-20">
       <div className="max-w-3xl mx-auto py-4">
-        <h1 className="text-2xl font-bold text-[#002D62]">Halo, {user?.name?.toUpperCase()}</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <h1 className="text-2xl font-bold text-[#002D62]">Halo, {user?.name?.toUpperCase()}</h1>
+          {/* Badge Status Akun: sinkron dengan User.status (pending_approval -> active) */}
+                    {user?.status === 'active' ? (
+            <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-bold">
+              <CheckCircle2 className="h-3.5 w-3.5" /> AKUN AKTIF
+            </span>
+          ) : user?.status === 'suspended' ? (
+            // FIX: Suspended users must show "SUSPEND" in red/orange,
+            // NOT "MENUNGGU PERSETUJUAN" in yellow. Previously the binary
+            // active-vs-else check showed all non-active statuses (incl.
+            // suspended/punishment) as "MENUNGGU PERSETUJUAN".
+            <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-orange-100 text-orange-700 px-3 py-1 text-xs font-bold">
+              <AlertCircle className="h-3.5 w-3.5" /> SUSPEND
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-yellow-100 text-yellow-700 px-3 py-1 text-xs font-bold">
+              <Clock className="h-3.5 w-3.5" /> MENUNGGU PERSETUJUAN
+            </span>
+          )}
+        </div>
         <p className="text-gray-600 text-sm mt-1">Lengkapi langkah-langkah berikut untuk memulai <span className="font-bold">BISNIS</span> Anda</p>
       </div>
+
+      {/* Banner informasi alur approval (PRD v1.0) */}
+      {user?.status === 'pending_approval' && (
+        <div className="max-w-3xl mx-auto -mt-3">
+          <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm flex items-start gap-3">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <span>
+              Pendaftaran Anda sedang diproses oleh upline Anda sesuai alur approval FDPro.
+              Password login akan dikirim ke email Anda segera setelah akun diaktifkan.
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-3xl mx-auto flex flex-col space-y-4">
         {steps.map((step, index) => (
